@@ -5,7 +5,6 @@ library(DEoptim)
 library(rstan)
 current_working_dir <- dirname(rstudioapi::getActiveDocumentContext()$path)
 setwd(current_working_dir)
-load('model_comparison_real_data.RData')
 
 current_working_dir
 # -------------------------------------------------------------------------------------------#
@@ -957,34 +956,6 @@ log(sum(bf_pi))
 log(sum(bic_weight[,1]/bic_weight[,4]))
 ## 27.85304
 
-## random effect bayesian model selection
 
-## input of random effect model selction is N X M matrix
-## N is the participant number
-## M is the model number
-
-com_matrix <- matrix(nrow=agent_n,ncol = 2)
-com_matrix[,1] <- lap_lme_m1
-com_matrix[,2] <- lap_lme_m2
-
-VB_bms(com_matrix)
-
-# $alpha
-# [1] 44.23913 17.76087
-# 
-# $r
-# [1] 0.7135343 0.2864657
-# 
-# $xp
-# [1] 0.999702 0.000298
-# 
-# $bor
-# [1] 0.08289518
-# 
-# $pxp
-# [1] 0.95827911 0.04172089
-
-## save result
-save.image('model_comparison.RData')
 
 
