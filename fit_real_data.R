@@ -145,8 +145,7 @@ llf_m2 <- function(x,choice,cue,outcome){
   return(sum_llf)
 }
 
-## log-likelihood function model MAP estimation
-# Model 1: Full Model
+# Model 3: Without go bias parameter
 
 llf_m3 <- function(x,choice,cue,outcome){
   ## log-likelihood function for model 1
@@ -204,8 +203,7 @@ llf_m3 <- function(x,choice,cue,outcome){
   return(sum_llf)
 }
 
-## log-likelihood function model MAP estimation
-# Model 1: Full Model
+# Model 4: Without pavlovian bias parameter
 
 llf_m4 <- function(x,choice,cue,outcome){
   ## log-likelihood function for model 1
@@ -349,21 +347,18 @@ fit_real<-  stan(file = 'gng_rl.stan', data = fit_list,chains = 2,
 
 fit2_real <-  stan(file = 'gng_rl_m2.stan', data = fit_list2,chains = 2,iter=5000,warmup = 2500,cores=2)
 
-
+## fit model3 without go bias 
+  
 fit3_real <-  stan(file = 'gng_rl_m3.stan', data = fit_list2,chains = 2,iter=5000,warmup = 2500,cores=2)
 
-
+## fit model3 without pavlovian bias 
+  
 fit4_real <-  stan(file = 'gng_rl_m4.stan', data = fit_list2,chains = 2,iter=5000,warmup = 2500,cores=2)
 
-loo(fit_real)
-loo(fit2_real)
-fit_real
 
 # -------------------------------------------------------------------------------------------#
 
-# Fit model with simulated data
-
-## fit model with maximum a posterior estimation
+## Fit model with MAP estimation
 
 # -------------------------------------------------------------------------------------------#
 
@@ -405,7 +400,7 @@ for(n in 1:agent_n){
 }
 
 
-## fit full model
+## fit model3
 
 map_m3 <- matrix(nrow = agent_n,ncol = 5) ## save result
 
@@ -422,7 +417,7 @@ for(n in 1:agent_n){
   map_m3[n,5] <- fit_result3$optim$bestval ## save negative log-likelihood + prior probability
 }
 
-## fit full model
+## fit model4
 
 map_m4 <- matrix(nrow = agent_n,ncol = 5) ## save result
 
@@ -913,8 +908,6 @@ bias_m_post_0 <- approx(bias_m_kde$x, bias_m_kde$y, xout = 0)$y
 pi_m_kde <- density(pi_m_sam)
 pi_m_post_0 <- approx(pi_m_kde$x,pi_kde$y,xout = 0)$y
 
-bias_m_sam
-bias_m_kde$y
 ## compute Savage-Dickey Ratio version bayes factor
 
 bf_sd <-  pi_m_post_0 *bias_m_post_0 / (dnorm(0)*dnorm(0))
