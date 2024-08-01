@@ -6,7 +6,6 @@ library(rstan)
 current_working_dir <- dirname(rstudioapi::getActiveDocumentContext()$path)
 setwd(current_working_dir)
 
-current_working_dir
 # -------------------------------------------------------------------------------------------#
 
 # functions for simluation and model-fitting
@@ -40,7 +39,7 @@ inv_logit <- function(x){
 }
 
 
-## log-likelihood function model MAP estimation
+## loss function for MAP estimation
 # Model 1: Full Model
 llf_m1 <- function(x,choice,cue,outcome){
   ## log-likelihood function for model 1
@@ -148,7 +147,7 @@ llf_m2 <- function(x,choice,cue,outcome){
 # Model 3: Without go bias parameter
 
 llf_m3 <- function(x,choice,cue,outcome){
-  ## log-likelihood function for model 1
+  ## log-likelihood function for model 3
   ## args:
   # x: parameter vector
   # choice: data
@@ -206,7 +205,7 @@ llf_m3 <- function(x,choice,cue,outcome){
 # Model 4: Without pavlovian bias parameter
 
 llf_m4 <- function(x,choice,cue,outcome){
-  ## log-likelihood function for model 1
+  ## log-likelihood function for model 4
   ## args:
   # x: parameter vector
   # choice: data
@@ -261,8 +260,12 @@ llf_m4 <- function(x,choice,cue,outcome){
   return(sum_llf)
 }
 
+# -------------------------------------------------------------------------------------------#
 
-### LOAD PARTICIPANT TASK DATA
+## Load and clean task data 
+
+# -------------------------------------------------------------------------------------------#
+
 #all PIT participant IDs
 studyIDAll <-  c(1,2,3,4,5,7,8,9,10,12,13,14,16:27,32,33,36:40,42:44,46:49,51:56,58,131,147:150,154,156,159:167)
 allPIT <- data.frame()
@@ -335,9 +338,19 @@ for (sub in 1:subj_num){
   
 }
 
+## make list for stan model fitting
+  
 fit_list <- list(ns = agent_n, nt=180, cue=cue,outcome=outcome,choice=choice,val=val)
 fit_list2 <- list(ns = agent_n, nt=180, cue=cue,outcome=outcome,choice=choice)
 
+# -------------------------------------------------------------------------------------------#
+
+  
+## Fit models with Hierarchical-model with Rstan
+
+# -------------------------------------------------------------------------------------------#
+
+  
 ## fit model1 full model
 
 fit_real<-  stan(file = 'gng_rl.stan', data = fit_list,chains = 2,
@@ -349,7 +362,7 @@ fit2_real <-  stan(file = 'gng_rl_m2.stan', data = fit_list2,chains = 2,iter=500
 
 ## fit model3 without go bias 
   
-fit3_real <-  stan(file = 'gng_rl_m3.stan', data = fit_list2,chains = 2,iter=5000,warmup = 2500,cores=2)
+fit3_real <-  stan(file = 'gng_rl_m3.stan', data = fit_list,chains = 2,iter=5000,warmup = 2500,cores=2)
 
 ## fit model3 without pavlovian bias 
   
@@ -379,7 +392,6 @@ for(n in 1:agent_n){
   map_m1[n,1:5] <- fit_result$optim$bestmem ## save fitted parameter
   map_m1[n,6] <- fit_result$optim$bestval ## save negative log-likelihood + prior probability
 }
-map_m1
 
 
 ## fit model 2
@@ -398,7 +410,6 @@ for(n in 1:agent_n){
     
 
 }
-
 
 ## fit model3
 
@@ -693,23 +704,17 @@ dic_m2
 
 ## Loo-CV
 
-# model1
-
 loo_m1 <- loo(fit)
-
-# model2
-
 loo_m2<- loo(fit2)
-
+loo_m3<- loo(fit3)
+loo_m4<- loo(fit4)
+  
 ## WAIC
 
-# model 1
-
 waic_m1 <- waic(extract_log_lik(fit))
-
-# model 2
-
 waic_m2 <- waic(extract_log_lik(fit2))
+waic_m3 <- waic(extract_log_lik(fit3))
+waic_m4 <- waic(extract_log_lik(fit4))
 
 
 ## compare aic, dic, waic and loo-cv
@@ -722,7 +727,6 @@ m2_ic_tibble <- tibble(AIC=aic_m2,DIC=dic_m2,WAIC=waic_m2$pointwise[,3],
   pivot_longer(cols = -c(model),names_to = 'method',values_to = "cv")
 
 ic_tibble <- bind_rows(m1_ic_tibble,m2_ic_tibble)
-ic_tibble
 
 offset_ic <- min(ic_tibble$cv)
 ic_tibble %>%
@@ -834,17 +838,66 @@ for(n in 1:agent_n){
   
 }
 
+## model 3
+
+lap_lme_m3 <- vector(length = agent_n)##save result
+k <- 4 ## parameter number
+
+for(n in 1:agent_n){
+  
+  # calculate determinant of hessian matrix
+  hess_det <- det(-hessian(llf_m3,map_m3[n,1:4],outcome=outcome,cue=cue,choice=sim_choice_rl[n,]))
+  
+  if (is.na(log(hess_det))==TRUE){
+    lap_lme_m3[n] <- bic_m3[n]/-2  ## if log hessian matrix determinant is NaN, replace it with BIC
+  }
+  else{
+    lap_lme_m3[n] <- -map_m3[n,6] +  k/2 * log(2*pi) - log(hess_det)/2
+    
+  }
+}
+
+## model 4
+
+lap_lme_m4 <- vector(length = agent_n)##save result
+k <- 4 ## parameter number
+
+for(n in 1:agent_n){
+  
+  # calculate determinant of hessian matrix
+  hess_det <- det(-hessian(llf_m4,map_m4[n,1:4],outcome=outcome,cue=cue,choice=sim_choice_rl[n,]))
+  
+  if (is.na(log(hess_det))==TRUE){
+    lap_lme_m4[n] <- bic_m4[n]/-2  ## if log hessian matrix determinant is NaN, replace it with BIC
+  }
+  else{
+    lap_lme_m4[n] <- -map_m4[n,6] +  k/2 * log(2*pi) - log(hess_det)/2
+    
+  }
+}
+
+
 ## bridge-sampling  marginal-likelihood
 
 # model1
 
 model1_n <- stan('gng_rl.stan',data=fit_list,iter = 1)  ## prevent bridge sampling from crashing in windows
-bs_lme_m1 <- bridge_sampler(fit,model1_n, silent = TRUE)
+bs_lme_m1 <- bridge_sampler(fit_real,model1_n, silent = TRUE)
 
 # model2
 
-model2_n <- stan('gng_rl_m2.stan',data=fit_list,iter = 1)
-bs_lme_m2 <- bridge_sampler(fit2,model2_n,silent=TRUE)
+model2_n <- stan('gng_rl_m2.stan',data=fit_list2,iter = 1)
+bs_lme_m2 <- bridge_sampler(fit2_real,model2_n,silent=TRUE)
+
+# model3
+
+model3_n <- stan('gng_rl_m3.stan',data=fit_list,iter = 1)  ## prevent bridge sampling from crashing in windows
+bs_lme_m3 <- bridge_sampler(fit3_real,model3_n, silent = TRUE)
+
+# model4
+
+model4_n <- stan('gng_rl_m4.stan',data=fit_list2,iter = 1)  ## prevent bridge sampling from crashing in windows
+bs_lme_m4 <- bridge_sampler(fit4_real,model4_n, silent = TRUE)
 
 
 ## compare marginal likelihood index
@@ -855,8 +908,15 @@ m1_lme_tibble <- tibble(bic=sum(bic_m1)/-2,bs=bs_lme_m1$logml,
 m2_lme_tibble <- tibble(bic=sum(bic_m2)/-2,bs=bs_lme_m2$logml,
                         lap=sum(lap_lme_m2),model='2')%>%
   pivot_longer(cols = -c(model),names_to = 'method',values_to = "lme")
+m3_lme_tibble <- tibble(bic=sum(bic_m3)/-2,bs=bs_lme_m3$logml,
+                        lap=sum(lap_lme_m3),model='3')%>%
+  pivot_longer(cols = -c(model),names_to = 'method',values_to = "lme")
+m4_lme_tibble <- tibble(bic=sum(bic_m4)/-2,bs=bs_lme_m4$logml,
+                      lap=sum(lap_lme_m4),model='4')%>%
+pivot_longer(cols = -c(model),names_to = 'method',values_to = "lme")
 
-lme_tibble <- bind_rows(m1_lme_tibble,m2_lme_tibble)%>%
+
+lme_tibble <- bind_rows(m1_lme_tibble,m2_lme_tibble,m3_lme_tibble,m4_lme_tibble)%>%
   mutate(
     method=str_replace(method,'bic','BIC'),
     method=str_replace(method,'bs','Bridge-Sampling'),
