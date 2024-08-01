@@ -456,8 +456,12 @@ for(n in 1:agent_n){
 
 # -------------------------------------------------------------------------------------------#
 
-## get log-likelihood for MAP estimation
+## get log-likelihood from hierarchical estimation and MAP estimation
 
+# -------------------------------------------------------------------------------------------#
+
+## log-likelihoo of MAP estimation
+  
 ## divide prior probability
 
 llf_m1_map <- map_m1[,6] + 2*p_n + log(dbeta(map_m1[,1],1.1,1.1))+
@@ -474,45 +478,26 @@ llf_m3_map <- map_m3[,5] + 2*p_n + log(dbeta(map_m3[,1],1.1,1.1))+
 llf_m4_map <-map_m4[,5] + 2*p_n + log(dbeta(map_m4[,1],1.1,1.1))+
   + log(dbeta(map_m4[,2],1.1,1.1)) +
   log(dbeta(map_m4[,3],.95,.95)) + log(dgamma(map_m4[,4],2,.3))
-map_m4
 
-## posterior predictive  check
-## plot two model simulation data
-
-sim_tib <- tibble(choice_mu=apply(sim_choice_rl,2,mean),t_num=1:180,cue_t = cue_t,cue=cue)
-sim_tib$cue <- factor(sim_tib$cue,
-                      levels = c(1,2,3,4),
-                      labels=c('Go_reward','Go_avoid_punishment','No_Go_reward','No_Go_avoid_punishment'))
-
-# model 1
-
-draws_m1 <- extract(fit)
+## log-lieklihood from hierarchical estimation
+draws_m1 <- extract(fit_real)
 log_lf1_stan <- draws_m1$log_lik
-pred_m1 <- apply(draws_m1$utility,c(2,3),mean)## get model prediction
-plot_data(pred_m1+1,plot_se = TRUE,linetype = 'solid')
-
-# model 2
-
-draws_m2 <- extract(fit2)
+draws_m2 <- extract(fit2_real)
 log_lf2_stan <- draws_m2$log_lik
-pred_m2 <- apply(draws_m2$utility,c(2,3),mean)
-plot_data(pred_m2+1,plot_se = TRUE,linetype = 'solid')
+draws_m3 <- extract(fit3_rea;)
+log_lf3_stan <- draws_m3$log_lik
+draws_m4 <- extract(fit4_rea;)
+log_lf4_stan <- draws_m4$log_lik
+
+
+  
 
 ## pseudo r square
-## model1(full model)
 
 log_lf1_mu <- llf_m1_map
 p_r2 <-  1+ log_lf1_mu /(180 * log(0.5))
-mean(p_r2)
-# 0.5820934
-
-
-## model2
-
 log_lf2_mu <- llf_m2_map
 p_r2_2 <-  1+ (log_lf2_mu /(180 * log(0.5)))
-mean(p_r2_2)
-# 0.5154812
 
 ## AUC analysis
 
@@ -626,18 +611,12 @@ ggsave('auc.png',dpi=200,width=10,height = 7)
 
 ## Compute AUC
 auc_roc(pred_flat, data_flat)
-# 0.948447
-auc_roc(pred_flat2,data_flat)
-# 0.9457004
 
 
-
-## compute likelihood-ratio test
+## compute likelihood-ratio test between model 1 and model 2
 
 ratio <- sum(2*(-llf_m1_map + llf_m2_map) )
 p_value <- pchisq(ratio, agent_n * 2, lower.tail = FALSE)
-p_value
-#  1.458517e-198
 
 
 # -------------------------------------------------------------------------------------------#
@@ -653,52 +632,31 @@ p_value
 ## aic and bic
 
 # model1
-
-p_n <- 5
-n <- 180
-aic_m1 <- 2*llf_m1_map + 2 * p_n
-aic_m1
-
-bic_m1 <- 2*llf_m1_map + log(n)*p_n
-bic_m1
-
+n <- 180 ## trial number
+aic_m1 <- 2*llf_m1_map + 2 * 5
+bic_m1 <- 2*llf_m1_map + log(n)*5
+  
 # model2
-
-p_n <- 3
-aic_m2 <- 2*llf_m2_map+ 2*p_n
-bic_m2 <- 2*llf_m2_map + log(n)*p_n
+aic_m2 <- 2*llf_m2_map+ 2*3
+bic_m2 <- 2*llf_m2_map + log(n)*3
 
 ## model3
-
-p_n <- 4
 n <- 180
-aic_m3 <- 2*llf_m3_map + 2 * p_n
-aic_m3
-
-bic_m3 <- 2*llf_m3_map + log(n)*p_n
-bic_m3
+aic_m3 <- 2*llf_m3_map + 2 * 4
+bic_m3 <- 2*llf_m3_map + log(n)*4
 
 ## model4
-
-p_n <- 4
 n <- 180
-aic_m4 <- 2*llf_m4_map + 2 * p_n
-aic_m4
-
-bic_m4 <- 2*llf_m4_map + log(n)*p_n
-bic_m4
+aic_m4 <- 2*llf_m4_map + 2 * 4
+bic_m4 <- 2*llf_m4_map + log(n)*4
 
 
 ## DIC:
 
-# model1
-
 dic_m1 <- -2*colMeans(log_lf1_stan) + apply(log_lf1_stan,2,var)
-
-# model2
-
 dic_m2 <- -2*colMeans(log_lf2_stan) + apply(log_lf2_stan,2,var)
-dic_m2
+dic_m3 <- -2*colMeans(log_lf3_stan) + apply(log_lf3_stan,2,var)
+dic_m4 <- -2*colMeans(log_lf4_stan) + apply(log_lf4_stan,2,var)
 
 ## WAIC and Parto-Loo-CV
 
@@ -725,8 +683,15 @@ m1_ic_tibble <- tibble(AIC=aic_m1,DIC=dic_m1,WAIC=waic_m1$pointwise[,3],
 m2_ic_tibble <- tibble(AIC=aic_m2,DIC=dic_m2,WAIC=waic_m2$pointwise[,3],
                        LOOIC=loo_m2$pointwise[,4],model='2')%>%
   pivot_longer(cols = -c(model),names_to = 'method',values_to = "cv")
+m3_ic_tibble <- tibble(AIC=aic_m3,DIC=dic_m3,WAIC=waic_m3$pointwise[,3],
+                       LOOIC=loo_m3$pointwise[,4],model='2')%>%
+  pivot_longer(cols = -c(model),names_to = 'method',values_to = "cv")
+m4_ic_tibble <- tibble(AIC=aic_m4,DIC=dic_m4,WAIC=waic_m4$pointwise[,3],
+                       LOOIC=loo_m4$pointwise[,4],model='2')%>%
+  pivot_longer(cols = -c(model),names_to = 'method',values_to = "cv")  
 
-ic_tibble <- bind_rows(m1_ic_tibble,m2_ic_tibble)
+
+ic_tibble <- bind_rows(m1_ic_tibble,m2_ic_tibble,m3_ic_tibble,m4_ic_tibble)
 
 offset_ic <- min(ic_tibble$cv)
 ic_tibble %>%
